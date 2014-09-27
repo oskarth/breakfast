@@ -9,6 +9,7 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/clojurescript "0.0-2342"]
                  [ring "1.3.1"]
+                 [http-kit "2.1.18"]
                  [compojure "1.1.9"]
                  [enlive "1.1.5"]
                  [om "0.7.1"]
@@ -16,7 +17,8 @@
                  [environ "1.0.0"]
                  [com.cemerick/piggieback "0.1.3"]
                  [weasel "0.4.0-SNAPSHOT"]
-                 [irclj "0.5.0-alpha4"]]
+                 [irclj "0.5.0-alpha4"]
+                 [com.taoensso/sente "1.1.0"]]
 
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-environ "1.0.0"]]

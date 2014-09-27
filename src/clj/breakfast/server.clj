@@ -1,6 +1,6 @@
 (ns breakfast.server
   (:require [clojure.java.io :as io]
-            [ring.adapter.jetty :refer (run-jetty)]
+            [org.httpkit.server :refer (run-server)]
             [compojure.core :refer (GET defroutes)]
             [compojure.route :refer (resources)]
             [net.cgrand.enlive-html :as html :refer (deftemplate)]
@@ -13,22 +13,21 @@
 
 (defn handle-incoming
   "Deal with incoming IRC messages."
-  [text nick]
+  [_ {:keys [text nick] :as m}]
   (prn (str "INCOMING: " text " (" nick ")")))
 
-(def connection
-  "IRC connection."
-  (irc/connect "irc.freenode.net" 6667 "breakfastbot"
-               :callbacks {:privmsg (fn [_ {:keys [text nick]}]
-                                      (handle-incoming text nick))}))
+(defn start-irc []
+  (let [conn (irc/connect "irc.freenode.net" 6667 "breakfastbot"
+                          :callbacks {:privmsg handle-incoming})]
+    (irc/join conn "#clojurecup-breakfast")
+    conn))
 
-;; automatically join channel at startup
-(irc/join connection "#clojurecup-breakfast")
+;; (def conn (start-irc)) ;; automatically connect to irc
 
 (defn message
   "Send a message through IRC."
-  [s]
-  (irc/message connection "#clojurecup-breakfast" (str "foo says: " s)))
+  [conn s]
+  (irc/message conn "#clojurecup-breakfast" (str "foo says: " s)))
   
 (defn body-transforms []
   (if (env :is-dev)
@@ -52,8 +51,8 @@
 
 (defn run [& [port]]
   (defonce ^:private server
-    (run-jetty #'site {:port (Integer. (or port (env :port) 10555))
-                             :join? false}))
+    (run-server #'site {:port (Integer. (or port (env :port) 10555))
+                        :join? false}))
   server)
 
 (defn -main [& [port]]
