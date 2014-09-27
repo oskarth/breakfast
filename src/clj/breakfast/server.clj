@@ -10,8 +10,8 @@
             [weasel.repl.websocket :as weasel]
             [irclj.core :as irc]
             [taoensso.sente :as sente]
-            ;;[ring.middleware.defaults]
-            ;;[ring.middleware.anti-forgery :as ring-anti-forgery]
+            [ring.middleware.keyword-params :refer (wrap-keyword-params)]
+            [ring.middleware.nested-params :refer (wrap-nested-params)]
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.params :refer [wrap-params]]
             ))
@@ -30,17 +30,11 @@
 (defn login!
   "Get some kind of uid going."
   [req]
-  (let [{:keys [session params]} req
-        {:keys [user-id]} params]
-    (prn (str "login!req " (str req)))
-    ;; does this work?
-    {:status 200 :session (assoc session :uid user-id)}
-    
-    ;;{:status 200 :session (assoc session :uid (str (rand-int 100)))}
-    ))
-
-;; key OR supply a :user-id-fn (takes request, returns an identity
-;; string) to the make-channel-socket! constructor.
+  (let [{:keys [session params]} req ;; shoud be params but... form-params?
+        {:keys [user-id]} params] ;; -- not a key?
+    (prn "params: " (str params))
+    (prn "user-id: " (str user-id))
+    {:status 200 :session (assoc session :uid user-id)}))
 
 ;; just listen for stuff from client
 (go (while true
@@ -93,16 +87,10 @@
 
   (GET "/*" req (page)))
 
-
-;; from sente example project, csrf stuff
-;; (def my-ring-handler
-;;   (let [ring-defaults-config
-;;         (assoc-in ring.middleware.defaults/site-defaults [:security :anti-forgery]
-;;                   {:read-token (fn [req] (-> req :params :csrf-token))})]
-;;     (ring.middleware.defaults/wrap-defaults my-routes ring-defaults-config)))
-
 (def app
   (-> routes
+      wrap-keyword-params
+      wrap-nested-params
       wrap-params
       wrap-session))
 
