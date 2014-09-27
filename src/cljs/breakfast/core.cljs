@@ -1,12 +1,20 @@
 (ns breakfast.core
   (:require-macros
-   [cljs.core.async.macros :as async :refer (go go-loop)])
-  (:require [om.core :as om :include-macros true]
+   [cljs.core.async.macros :as asyncm :refer (go go-loop)])
+  (:require [clojure.string :as str]
+            [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [figwheel.client :as figwheel :include-macros true]
             [weasel.repl :as weasel]
             [cljs.core.async :as async :refer (<! >! put! chan)]
-            [taoensso.sente  :as sente :refer (cb-success?)]))
+            [taoensso.sente  :as sente :refer (cb-success?)]
+            [taoensso.encore :as encore :refer (logf)]))
+
+
+(logf "ClojureScript appears to have loaded correctly.")
+
+(defn log [s x]
+  (.log js/console s (str x)))
 
 ;; sente stuff
 
@@ -26,11 +34,44 @@
 ;; just put something
 (chsk-send! [:my-app/some-req {:data "data"}])
 
+;; from example app
+;; (do ; Client-side methods  (defmethod event-msg-handler :default ; Fallback
+;;     [{:as ev-msg :keys [event]}]
+;;     (log "Unhandled event: " event)
+;;   (defmethod event-msg-handler :chsk/state
+;;     [{:as ev-msg :keys [?data]}]
+;;     (if (= ?data {:first-open? true})
+;;       (log "Channel socket successfully established!" "")
+;;       (log "Channel socket state change: " ?data)))
+;;   (defmethod event-msg-handler :chsk/recv
+;;     [{:as ev-msg :keys [?data]}]
+;;     (log "Push event from server: " ?data))
+;;   ;; Add your (defmethod handle-event-msg! <event-id> [ev-msg] <body>)s here...
+;; )
+
+;; also, sup with no csfr token available error
+
+;; do this but for just a go loop or smt
+;;   (defmethod event-msg-handler :chsk/recv
+;;     [{:as ev-msg :keys [?data]}]
+;;     (log "Push event from server: " ?data))
+
+
+;;what
+
+;; (defn test-fast-server>user-pushes []
+;;   (doseq [uid (:any @connected-uids)]
+;;     (doseq [i (range 100)]
+;;       (chsk-send! uid [:fast-push/is-fast (str "hello " i "!!")]))))
+
+;; (test-fast-server>user-pushes)
+
 (defn login! [uid]
   (do (sente/ajax-call "/login"
                        {:method :post
                         :params {:user-id    uid
-                                 :csrf-token (:csrf-token @chsk-state)}}
+                                 ;;:csrf-token (:csrf-token @chsk-state) ;; disable for now
+                                 }}
                        (fn [ajax-resp] (.log js/console "Ajax login response: %s" ajax-resp)))
       (sente/chsk-reconnect! chsk)))
 
@@ -39,6 +80,11 @@
     (reify
       om/IWillMount
       (will-mount [this]
+        (go (while true
+              (let [v (<! ch-chsk)] ;; right channel?
+                (prn "MSG: " (str (pr-str v)))))) ;; super messy broadcast recv ATM
+        ;;(def ch-chsk    ch-recv) ; ChannelSocket's receive channel
+        
         (if (not (:uid app))
           (let [uid (str "user_" (rand-int 100))]
             (do (login! uid)

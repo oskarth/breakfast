@@ -1,6 +1,6 @@
 (ns breakfast.server
   (:require [clojure.java.io :as io]
-            [clojure.core.async :refer (go)]
+            [clojure.core.async :as async :refer (<! <!! >! >!! put! chan go go-loop)]
             [org.httpkit.server :refer (run-server)]
             [compojure.core :refer (GET POST defroutes)]
             [compojure.route :refer (resources)]
@@ -41,6 +41,28 @@
       (let [v (<! ch-chsk)]
         (do (prn "EVENT: " (str (pr-str v)))
             (prn  "KEYS: " (str (pr-str (keys v))))))))
+
+;; JUST PLAYING, FROM EXAMPLE PROJ
+
+;;;; Example: broadcast server>user
+;; As an example of push notifications, we'll setup a server loop to broadcast
+;; an event to _all_ possible user-ids every 10 seconds:
+(defn start-broadcaster! []
+  (go-loop [i 0]
+    (<! (async/timeout 10000))
+    (println (format "Broadcasting server>user: %s" @connected-uids))
+    (doseq [uid (:any @connected-uids)]
+      (chsk-send! uid
+                  [:some/broadcast
+                   {:what-is-this "A broadcast pushed from server"
+                    :how-often "Every 10 seconds"
+                    :to-whom uid
+                    :i i}]))
+    (recur (inc i))))
+
+(start-broadcaster!)
+
+
 
 ;; something like
 ;; (chsk-send! "destination-user-id" [:some/alert-id <edn-payload>]).
