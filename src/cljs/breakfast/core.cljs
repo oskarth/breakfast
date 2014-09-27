@@ -1,10 +1,29 @@
 (ns breakfast.core
+  (:require-macros
+   [cljs.core.async.macros :as async :refer (go go-loop)])
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [figwheel.client :as figwheel :include-macros true]
-            [weasel.repl :as weasel]))
+            [weasel.repl :as weasel]
+            [cljs.core.async :as async :refer (<! >! put! chan)]
+            [taoensso.sente  :as sente :refer (cb-success?)]))
+
+;; sente stuff
+
+(let [{:keys [chsk ch-recv send-fn state]}
+      (sente/make-channel-socket! "/chsk" ; Note the same path as before
+       {:type :auto ; e/o #{:auto :ajax :ws}
+       })]
+  (def chsk       chsk)
+  (def ch-chsk    ch-recv) ; ChannelSocket's receive channel
+  (def chsk-send! send-fn) ; ChannelSocket's send API fn
+  (def chsk-state state)   ; Watchable, read-only atom
+  )
 
 (defonce app-state (atom {:text "Hello Breakfast!"}))
+
+;; just put something
+(chsk-send! [:my-app/some-req {:data "data"}])
 
 (om/root
   (fn [app owner]
