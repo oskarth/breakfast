@@ -9,9 +9,12 @@
             [cemerick.piggieback :as piggieback]
             [weasel.repl.websocket :as weasel]
             [irclj.core :as irc]
-            [taoensso.sente :as sente]))
-
-(def uid (atom 1)) ;; -1
+            [taoensso.sente :as sente]
+            ;;[ring.middleware.defaults]
+            ;;[ring.middleware.anti-forgery :as ring-anti-forgery]
+            [ring.middleware.session :refer [wrap-session]]
+            [ring.middleware.params :refer [wrap-params]]
+            ))
 
 ;; sente stuff
 (let [{:keys [ch-recv send-fn ajax-post-fn ajax-get-or-ws-handshake-fn
@@ -24,10 +27,26 @@
   (def connected-uids                connected-uids) ; Watchable, read-only atom
   )
 
+(defn login!
+  "Get some kind of uid going."
+  [req]
+  (let [{:keys [session params]} req
+        {:keys [user-id]} params]
+    (prn (str "login!req " (str req)))
+    ;; does this work?
+    {:status 200 :session (assoc session :uid user-id)}
+    
+    ;;{:status 200 :session (assoc session :uid (str (rand-int 100)))}
+    ))
+
+;; key OR supply a :user-id-fn (takes request, returns an identity
+;; string) to the make-channel-socket! constructor.
+
 ;; just listen for stuff from client
 (go (while true
       (let [v (<! ch-chsk)]
-        (prn "EVENT: " (str (pr-str v))))))
+        (do (prn "EVENT: " (str (pr-str v)))
+            (prn  "KEYS: " (str (pr-str (keys v))))))))
 
 ;; something like
 ;; (chsk-send! "destination-user-id" [:some/alert-id <edn-payload>]).
@@ -62,15 +81,30 @@
 (deftemplate page
   (io/resource "index.html") [] [:body] (body-transforms))
 
-(defroutes site
+(defroutes routes
   (resources "/")
   (resources "/react" {:root "react"})
 
   ;; channel socket
   (GET  "/chsk" req (ring-ajax-get-or-ws-handshake req))
   (POST "/chsk" req (ring-ajax-post                req))
-  
+
+  (POST "/login" req (login! req))
+
   (GET "/*" req (page)))
+
+
+;; from sente example project, csrf stuff
+;; (def my-ring-handler
+;;   (let [ring-defaults-config
+;;         (assoc-in ring.middleware.defaults/site-defaults [:security :anti-forgery]
+;;                   {:read-token (fn [req] (-> req :params :csrf-token))})]
+;;     (ring.middleware.defaults/wrap-defaults my-routes ring-defaults-config)))
+
+(def app
+  (-> routes
+      wrap-params
+      wrap-session))
 
 ;; (def conn (start-irc)) ;; automatically connect to irc
 
@@ -79,8 +113,8 @@
 
 (defn run [& [port]]
   (defonce ^:private server
-    (run-server #'site {:port (Integer. (or port (env :port) 10555))
-                        :join? false}))
+    (run-server #'app {:port (Integer. (or port (env :port) 10555))
+                       :join? false}))
   server)
 
 (defn -main [& [port]]

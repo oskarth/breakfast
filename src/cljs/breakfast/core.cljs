@@ -20,16 +20,32 @@
   (def chsk-state state)   ; Watchable, read-only atom
   )
 
-(defonce app-state (atom {:text "Hello Breakfast!"}))
+(defonce app-state (atom {:text "Hello Breakfast!"
+                          :uid nil}))
 
 ;; just put something
 (chsk-send! [:my-app/some-req {:data "data"}])
 
+(defn login! [uid]
+  (do (sente/ajax-call "/login"
+                       {:method :post
+                        :params {:user-id    uid
+                                 :csrf-token (:csrf-token @chsk-state)}}
+                       (fn [ajax-resp] (.log js/console "Ajax login response: %s" ajax-resp)))
+      (sente/chsk-reconnect! chsk)))
+
 (om/root
   (fn [app owner]
-    (reify om/IRender
+    (reify
+      om/IWillMount
+      (will-mount [this]
+        (if (not (:uid app))
+          (let [uid (str "user_" (rand-int 100))]
+            (do (login! uid)
+                (om/transact! app :uid (fn [_] uid))))))
+      om/IRender
       (render [_]
-        (dom/h1 nil (:text app)))))
+        (dom/h1 nil (str "uid:" (:uid app))))))
   app-state
   {:target (. js/document (getElementById "app"))})
 
