@@ -1,4 +1,4 @@
-(defproject breakfast "0.1.0"
+(defproject breakfast "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -35,47 +35,26 @@
 
   :uberjar-name "breakfast.jar"
 
-  ;; FROM DASHBOARD
-  :cljsbuild {
-    :builds [{:id "dev"
-              :source-paths ["src/cljs"]
-              :compiler {
-                :output-to "resources/public/js/main.js"
-                :output-dir "resources/public/js/out"
-                :optimizations :none
-                :source-map true}}
+  :cljsbuild {:builds {:app {:source-paths ["src/cljs"]
+                             :compiler {:output-to     "resources/public/app.js"
+                                        :output-dir    "resources/public/out"
+                                        :source-map    "resources/public/out.js.map"
+                                        :preamble      ["react/react.min.js"]
+                                        :externs       ["react/externs/react.js"]
+                                        :optimizations :none
+                                        :pretty-print  true}}}}
 
-             {:id "release"
-              :source-paths ["src/cljs"]
-              :compiler {
-                :output-to "resources/public/js/main_prod.js"
-                :optimizations :advanced
-                :pretty-print false
-                :preamble ["react/react.min.js"]
-                         :externs ["react/externs/react.js"]}}]})
-  ;; end
+  :profiles {:dev {:repl-options {:init-ns breakfast.server}
+                   :plugins [[lein-figwheel "0.1.4-SNAPSHOT"]]
+                   :figwheel {:http-server-root "public"
+                              :port 3449 }
+                   :env {:is-dev true}}
 
-
-  ;; :cljsbuild {:builds {:app {:source-paths ["src/cljs"]
-  ;;                            :compiler {:output-to     "resources/public/app.js"
-  ;;                                       :output-dir    "resources/public/out"
-  ;;                                       :source-map    "resources/public/out.js.map"
-  ;;                                       :preamble      ["react/react.min.js"]
-  ;;                                       :externs       ["react/externs/react.js"]
-  ;;                                       :optimizations :none
-  ;;                                       :pretty-print  true}}}}
-
-  ;; :profiles {:dev {:repl-options {:init-ns breakfast.server}
-  ;;                  :plugins [[lein-figwheel "0.1.4-SNAPSHOT"]]
-  ;;                  :figwheel {:http-server-root "public"
-  ;;                             :port 3449 }
-  ;;                  :env {:is-dev true}}
-
-  ;;            :uberjar {:hooks [leiningen.cljsbuild]
-  ;;                      :env {:production true}
-  ;;                      :omit-source true
-  ;;                      :aot :all
-  ;;                      :cljsbuild {:builds {:app
-  ;;                                           {:compiler
-  ;;                                            {:optimizations :advanced
-  ;;                                             :pretty-print false}}}}}})
+             :uberjar {:hooks [leiningen.cljsbuild]
+                       :env {:is-dev true} ;; sure. :production before.
+                       :omit-source true
+                       :aot :all
+                       :cljsbuild {:builds {:app
+                                            {:compiler
+                                             {:optimizations :none ;;:advanced
+                                              :pretty-print true}}}}}}) ;; false
