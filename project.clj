@@ -27,6 +27,13 @@
 
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-environ "1.0.0"]]
+
+  :repl-options {
+             ;; If nREPL takes too long to load it may timeout,
+             ;; increase this to wait longer before timing out.
+             ;; Defaults to 30000 (30 seconds)
+             :timeout 120000
+             }
   
   :aot [breakfast.server]
   :main breakfast.server

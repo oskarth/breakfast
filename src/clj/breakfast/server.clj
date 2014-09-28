@@ -66,7 +66,7 @@
 ;;(:text :target :command :params :raw :host :user :nick)
 
 (defn start-irc []
-  (let [conn (irc/connect "irc.freenode.net" 6667 "breakfastbot"
+  (let [conn (irc/connect "irc.freenode.net" 6667 (str "breakfastbot" (rand-int 10))
                           :callbacks {:privmsg handle-incoming})]
     (irc/join conn "#clojurecup-breakfast")
     (irc/join conn "#clojure") ;; why not? message is separate fn
@@ -167,7 +167,7 @@
 
 (defn run [& [port]]
   (defonce ^:private server
-    (run-server #'app {:port (Integer. (or port (env :port) 10555))
+    (run-server #'app {:port (Integer. 10555) ;;(Integer. (or port (env :port) 10555))
                        :join? false}))
   server)
 
