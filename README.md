@@ -1,5 +1,10 @@
 # breakfast
 
+Breakfast was written during Clojure Cup 2014.
+
+See it live at breakfast.clojurecup.com. Ping @oskarth on Twitter or
+Freenode for questions.
+
 ## About
 
 breakfast is a live web chat connected to IRC. It's a proof of concept
