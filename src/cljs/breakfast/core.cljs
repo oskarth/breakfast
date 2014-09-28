@@ -1,3 +1,10 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Breakfast IRC app/bot for Clojure Cup.
+;;;
+;;; :)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;_* Declarations =====================================================
 (ns breakfast.core
   (:require-macros
    [cljs.core.async.macros :as asyncm :refer (go go-loop)])
@@ -10,14 +17,14 @@
             [taoensso.sente  :as sente :refer (cb-success?)]
             [taoensso.encore :as encore :refer (logf)]))
 
-
+;;;_* Code =============================================================
+;;;_ * Misc  -----------------------------------------------------------
 (logf "ClojureScript appears to have loaded correctly.")
 
 (defn log [s x]
   (.log js/console s (str x)))
 
-;; sente stuff
-
+;;;_ * Channels  -------------------------------------------------------
 (let [{:keys [chsk ch-recv send-fn state]}
       (sente/make-channel-socket! "/chsk" ; Note the same path as before
        {:type :auto ; e/o #{:auto :ajax :ws}
@@ -66,6 +73,7 @@
 
 ;; (test-fast-server>user-pushes)
 
+;;;_ * Actions  -------------------------------------------------------
 (defn login! [uid]
   (do (sente/ajax-call "/login"
                        {:method :post
@@ -75,6 +83,7 @@
                        (fn [ajax-resp] (.log js/console "Ajax login response: %s" ajax-resp)))
       (sente/chsk-reconnect! chsk)))
 
+;;;_ * Root -------------------------------------------------------
 (om/root
   (fn [app owner]
     (reify
@@ -95,6 +104,7 @@
   app-state
   {:target (. js/document (getElementById "app"))})
 
+;;;_ * Dev mode -------------------------------------------------------
 (def is-dev (.contains (.. js/document -body -classList) "is-dev"))
 
 (when is-dev
