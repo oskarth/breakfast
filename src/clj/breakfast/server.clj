@@ -73,12 +73,14 @@
 ;; https://github.com/brunoV/throttler
 ;;(def +# (throttle-fn + 100 :second))
 
-(defn send-message
-  "Send a message to a IRC channel."
+(defn send-message-raw
+  "Send a message to a IRC channel. Warning: unthrottled."
   [conn nick msg]
-  (throttle-fn
-   (irc/message conn "#clojurecup-breakfast" (str nick " says: " msg))
-   1 :second))
+  (irc/message conn "#clojurecup-breakfast" (str nick " says: " msg)))
+
+(def send-message-throttled
+  (throttle-fn send-message-raw 1 :second))
+
 ;; does this work? try 1 first. then 0.5.
 
 ;; based on http://www.reddit.com/r/irc/comments/1rdejj/freenode_flood_limits/
@@ -117,7 +119,7 @@
             :chsk/ws-ping (println "ws-ping")
             :irc/message (do
                            (println (str "nick " (:uid load) " msg " (:msg load)))
-                           (send-message conn (:uid load) (:msg load)))  ;; buffering? nick msg
+                           (send-message-throttled conn (:uid load) (:msg load)))  ;; buffering? nick msg
             )))))
  ;; (str "nick " uid " msg " msg)))
 ;; :irc/message {:uid "user_42", :msg "foobar"}]
