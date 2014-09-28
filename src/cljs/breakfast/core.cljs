@@ -17,6 +17,7 @@
             [cljs.core.async :as async :refer (<! >! put! chan sliding-buffer)]
             [cljs.core.match]
             [cljs.reader :as reader]
+            [sablono.core :as html :refer-macros [html]]
             [taoensso.sente  :as sente :refer (cb-success?)]
             [taoensso.encore :as encore :refer (logf)]))
 
@@ -57,18 +58,23 @@
 ;;;_ * Actions  -------------------------------------------------------
 
 (defn input-box-input [owner chan]
-  (dom/div nil
-           (dom/input
-            #js {:type "text"
-                 ;; key press not working
-                 :onKeyPress (fn [e] (when (= (.-keyCode e) 13)
-                                       (log "foobar" (str e))
-                                       (let [value (om/get-state owner :value)]
-                                         (when value
-                                           (put! chan value)))))
-                 :onChange (fn [e]
-                             (om/set-state! owner :value (.-value (.-target e))))
-                 })))
+  (html
+   [:div {:class "form-group"}
+    ;; label?
+    [:input {:type "text"
+             :class "form-control input-lg"
+             ;; key press not working
+             ;; WARNING FIX ONKEYPRESS TEC
+             :onKeyPress
+             (fn [e] (when (= (.-keyCode e) 13)
+                       (log "foobar" (str e))
+                       (let [value (om/get-state owner :value)]
+                         (when value
+                           (put! chan value)))))
+             :onChange
+             (fn [e]
+               (om/set-state! owner :value (.-value (.-target e))))
+             }]]))
 
 (defn input-box-button [owner chan]
   (dom/button #js {:type "button"
@@ -108,14 +114,15 @@
   (reify
     om/IRender
     (render [_]
-      (dom/div nil
-               (dom/h1 nil (str "Welcome " (:uid app) " \\o_"))
-               (dom/p nil
-                      "Breakfast is a proof-of-concept live web
-               chat connected to IRC. Go to #clojurecup-breakfast at
-               Freenode to see it from the other side. It was build
-               during Clojure Cup 2014 by @oskarth.")))))
-
+      (html
+       [:div {:class "bs-component"}
+        (dom/h1 nil (str "Welcome " (:uid app) " \\o_"))
+        [:h4 {:class "text-primary"}
+         "Breakfast is a proof-of-concept live web chat connected to
+               IRC. Go to #clojurecup-breakfast at Freenode to see it
+               from the other side. It was build during Clojure Cup
+               2014 by @oskarth."]]))))
+  
 (defn irc-view [messages owner]
   (reify
     om/IRender
@@ -150,13 +157,17 @@
     
     om/IRenderState
     (render-state [_ {:keys [chans]}]
-      (dom/div nil
-               ;;(dom/p nil (str "APP STATE: " @app-state))
-               (om/build main-view app)
-               (om/build input-view (:input-box app) {:init-state chans})
-               (om/build irc-view (:messages app))
-                        )
-      )))
+      (html
+       [:div {:class "container"}
+        [:div.col-lg-2]
+        [:div.col-lg-8
+         ;;(dom/p nil (str "APP STATE: " @app-state))
+         (om/build main-view app)
+         (om/build input-view (:input-box app) {:init-state chans})
+         (om/build irc-view (:messages app))
+         ]
+        [:div.col-lg-2]]
+        ))))
 
 (om/root app-view
          app-state

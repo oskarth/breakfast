@@ -6,6 +6,7 @@
 
 ;;;_* Declarations =====================================================
 (ns breakfast.server
+  (:gen-class)
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async
              :refer (<! <!! >! >!! put! chan go go-loop sliding-buffer)]
