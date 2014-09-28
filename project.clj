@@ -35,8 +35,8 @@
              :timeout 120000
              }
   
-  :aot [breakfast.server]
-  :main breakfast.server
+;;  :aot [breakfast.server]
+;;  :main breakfast.server
 
   :min-lein-version "2.0.0"
 
