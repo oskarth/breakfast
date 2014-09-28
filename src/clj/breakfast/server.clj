@@ -26,6 +26,10 @@
             ))
 
 ;;;_* Code =============================================================
+
+;; TODO: can't see oneself? cause it's not a privmsg...
+;; (put! irc-chan (str nick ": " text))
+
 ;;;_ * Channels  -------------------------------------------------------
 (let [{:keys [ch-recv send-fn ajax-post-fn ajax-get-or-ws-handshake-fn
               connected-uids]}
@@ -53,6 +57,7 @@
                               :to-whom uid}])))))))
 
 (declare conn)
+(declare send-info-message-throttled)
 
 ;;;_ * IRC ------------------------------------------------------------
 
@@ -72,7 +77,19 @@
 (defn send-message-raw
   "Send a message to a IRC channel. Warning: unthrottled."
   [conn nick msg]
-  (irc/message conn "#clojurecup-breakfast" (str nick " says: " msg)))
+  (do
+    (irc/message conn "#clojurecup-breakfast" (str nick " says: " msg))
+    (put! irc-chan (str nick ": " msg))))
+
+(defn send-info-message-raw
+  "Code duplication is good, right?"
+  [conn nick msg]
+  (do
+    (irc/message conn "#clojurecup-breakfast" (str nick " just " msg))
+    (put! irc-chan (str nick " just " msg))))
+
+
+;; maybe? cause not PRIVMSG so need to push it.
 
 ;; does this work? try 1 first. then 0.5.
 ;; based on http://www.reddit.com/r/irc/comments/1rdejj/freenode_flood_limits/
@@ -83,29 +100,31 @@
 (def send-message-throttled
   (throttle-fn send-message-raw 1 :second))
 
+(def send-info-message-throttled
+  (throttle-fn send-info-message-raw 1 :second))
+
 (defn handle-client-events []
   (go (while true
         (let [v (<! ch-chsk)
               ev (:event v)
               load (second ev)]
           (condp identical? (first ev)
-            :chsk/uidport-open (println "uidport open")
-            :chsk/uidport-close (println "uidport close")
-            :chsk/ws-ping (println "ws-ping")
+            :chsk/uidport-open (send-info-message-throttled conn (-> v :ring-req :session :uid) "joined.")
+            :chsk/uidport-close (send-info-message-throttled conn (-> v :ring-req :session :uid) "left.")
+            :chsk/ws-ping nil ;; (prn "ping")
             :irc/message
             (do
-              (println (str "nick " (:uid load) " msg " (:msg load)))
+              (println (str (:uid load) ": " (:msg load)))
               (send-message-throttled conn (:uid load) (:msg load)))
             )))))
 
 ;;;_ * Requests/HTML --------------------------------------------------
+
 (defn login!
   "Get some kind of uid going."
   [req]
   (let [{:keys [session params]} req
         {:keys [user-id]} params]
-    (prn "params: " (str params))
-    (prn "user-id: " (str user-id))
     {:status 200 :session (assoc session :uid user-id)}))
 
 (defn body-transforms []

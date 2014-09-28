@@ -109,7 +109,7 @@
     om/IRender
     (render [_]
       (dom/div nil
-               (dom/h1 nil (str "uid:" (:uid app)))))))
+               (dom/h1 nil (str "Welcome " (:uid app)))))))
 
 (defn irc-view [messages owner]
   (reify
@@ -117,9 +117,8 @@
     (render [_]
       (dom/div nil
                (apply dom/ul nil
-                      (map (fn [msg] (dom/li nil (:message msg))) messages))
-               (dom/h1 nil (str "hi " (first messages)))))))
-
+                      (map (fn [msg]
+                             (dom/li nil (:message msg))) messages))))))
 (defn app-view [app owner]
   (reify
     om/IInitState
@@ -147,8 +146,7 @@
     om/IRenderState
     (render-state [_ {:keys [chans]}]
       (dom/div nil
-               (dom/p nil (str "APP STATE: " @app-state))
-               
+               ;;(dom/p nil (str "APP STATE: " @app-state))
                (om/build main-view app)
                (om/build input-view (:input-box app) {:init-state chans})
                (om/build irc-view (:messages app)))
