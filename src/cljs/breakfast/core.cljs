@@ -40,18 +40,19 @@
   )
 
 (defonce app-state (atom {:text "Hello Breakfast!"
-                          :messages []
+                          :messages ["message"]
                           :uid nil}))
 
 
-(defn handle-events []
+(defn handle-events [app]
   (go (while true
         (let [ev (:event (<! ch-chsk))
               msg (second (second ev))]
           (condp keyword-identical? (first ev)
             :chsk/state (prn "sup, checking state")
-            :chsk/recv (prn "msg: " (str (pr-str msg)))
-            ))))))
+            :chsk/recv  (do (om/transact! app :messages #(conj % msg)) ;;(fn [_] msg))
+                            (prn "msg: " (str (pr-str msg))))
+            )))))
 
 
 ;;;_ * Actions  -------------------------------------------------------
@@ -65,22 +66,42 @@
       (sente/chsk-reconnect! chsk)))
 
 ;;;_ * Root -------------------------------------------------------
-(om/root
-  (fn [app owner]
-    (reify
-      om/IWillMount
-      (will-mount [this]
-        (handle-events)
-        
-        (if (not (:uid app))
-          (let [uid (str "user_" (rand-int 100))]
-            (do (login! uid)
-                (om/transact! app :uid (fn [_] uid))))))
-      om/IRender
-      (render [_]
-        (dom/h1 nil (str "uid:" (:uid app))))))
-  app-state
-  {:target (. js/document (getElementById "app"))})
+
+(defn main-view [app owner]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/div nil
+               (dom/h1 nil (str "uid:" (:uid app)))))))
+
+(defn irc-view [messages owner]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/div nil
+               (apply dom/ul nil
+                      (map (fn [msg] (dom/li nil (:what-is-this msg))) messages))
+               (dom/h1 nil (str "hi " (first messages)))))))
+
+(defn app-view [app owner]
+  (reify
+    om/IWillMount
+    (will-mount [this]
+      (handle-events app)
+      (if (not (:uid app))
+        (let [uid (str "user_" (rand-int 100))]
+          (do (login! uid)
+              (om/transact! app :uid (fn [_] uid))))))
+    om/IRenderState
+    (render-state [_ _]
+      (dom/div nil
+               (om/build main-view app)
+               (om/build irc-view (:messages app)))
+      )))
+
+(om/root app-view
+         app-state
+         {:target (. js/document (getElementById "app"))})
 
 ;;;_ * Dev mode -------------------------------------------------------
 (def is-dev (.contains (.. js/document -body -classList) "is-dev"))
