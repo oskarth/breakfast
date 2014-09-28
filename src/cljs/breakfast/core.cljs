@@ -43,7 +43,6 @@
                           :messages ["message"]
                           :uid nil}))
 
-
 (defn handle-events [app]
   (go (while true
         (let [ev (:event (<! ch-chsk))
@@ -80,7 +79,7 @@
     (render [_]
       (dom/div nil
                (apply dom/ul nil
-                      (map (fn [msg] (dom/li nil (:what-is-this msg))) messages))
+                      (map (fn [msg] (dom/li nil (:message msg))) messages))
                (dom/h1 nil (str "hi " (first messages)))))))
 
 (defn app-view [app owner]

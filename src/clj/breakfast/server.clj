@@ -7,7 +7,7 @@
 ;;;_* Declarations =====================================================
 (ns breakfast.server
   (:require [clojure.java.io :as io]
-            [clojure.core.async :as async :refer (<! <!! >! >!! put! chan go go-loop)]
+            [clojure.core.async :as async :refer (<! <!! >! >!! put! chan go go-loop sliding-buffer)]
             [org.httpkit.server :refer (run-server)]
             [compojure.core :refer (GET POST defroutes)]
             [compojure.route :refer (resources)]
@@ -35,11 +35,12 @@
   (def connected-uids                connected-uids) ; Watchable, read-only atom
   )
 
+;; TODO
 ;; just listen for stuff from client
-(go (while true
-      (let [v (<! ch-chsk)]
-        (do (prn "EVENT: " (str (pr-str v)))
-            (prn  "KEYS: " (str (pr-str (keys v))))))))
+;; (go (while true
+;;       (let [v (<! ch-chsk)]
+;;         (do (prn "EVENT: " (str (pr-str v)))
+;;             (prn  "KEYS: " (str (pr-str (keys v))))))))
 
 ;; Kind of what we want for IRC broadcast, but a bit more often
 (defn start-broadcaster! []
@@ -55,11 +56,29 @@
                     :i i}]))
     (recur (inc i))))
 
+;; this is a chan, not a chan.
+(def irc-chan (chan (sliding-buffer 1))) ;; is sliding buffer 1 what I want?
+
+(defn handle-irc-events []
+  (go (while true
+        (let [msg (<! irc-chan)]
+          (do
+            (println (format "IRC Broadcasting server>user: %s" @connected-uids))
+            (doseq [uid (:any @connected-uids)]
+              (chsk-send! uid
+                          [:irc/message
+                           {:message msg
+                            :how-often "Every 5 seconds"
+                            :to-whom uid}])))))))
+
 ;;;_ * IRC ------------------------------------------------------------
+
 (defn handle-incoming
   "Deal with incoming IRC messages."
   [_ {:keys [text nick] :as m}]
-  (prn (str "INCOMING: " text " (" nick ")")))
+  ;; put them on a channel
+  (do (put! irc-chan (str "INCOMING: " text " (" nick ")")) ;; this does work
+      (prn (str "INCOMING: " text " (" nick ")"))))
 
 (defn start-irc []
   (let [conn (irc/connect "irc.freenode.net" 6667 "breakfastbot"
@@ -116,6 +135,7 @@
 ;;;_ * Start ------------------------------------------------------------
 
 ;; (def conn (start-irc)) ;; automatically connect to irc
+;; (handle-irc-events)
 
 (defn browser-repl []
   (piggieback/cljs-repl :repl-env (weasel/repl-env :ip "0.0.0.0" :port 9001)))
@@ -128,7 +148,12 @@
 
 (defn start! [& [port]]
   (run port)
-  (start-broadcaster!))  
+  ;;(start-broadcaster!)
+  )
+
+(defn start-irc! []
+  (start-irc)
+  (handle-irc-events))
 
 (defn -main [& [port]]
   (run port))
