@@ -22,6 +22,7 @@
 
 ;;;_* Code =============================================================
 ;;;_ * Misc  -----------------------------------------------------------
+
 (logf "ClojureScript appears to have loaded correctly.")
 
 (defn log [s x]
@@ -29,12 +30,12 @@
 
 ;;;_ * Channels  -------------------------------------------------------
 (let [{:keys [chsk ch-recv send-fn state]}
-      (sente/make-channel-socket! "/chsk" ; Note the same path as before
+      (sente/make-channel-socket! "/chsk"
        {:type :auto ; e/o #{:auto :ajax :ws}
        })]
   (def chsk       chsk)
-  (def ch-chsk    ch-recv) ; ChannelSocket's receive channel
-  (def chsk-send! send-fn) ; ChannelSocket's send API fn
+  (def ch-chsk    ch-recv) ; receive channel
+  (def chsk-send! send-fn) ; send APIfn
   (def chsk-state state)   ; Watchable, read-only atom
   )
 
@@ -49,7 +50,7 @@
               msg (second (second ev))]
           (condp keyword-identical? (first ev)
             :chsk/state (prn "sup, checking state")
-            :chsk/recv  (do (om/transact! app :messages #(conj % msg)) ;;(fn [_] msg))
+            :chsk/recv  (do (om/transact! app :messages #(conj % msg))
                             (prn "msg: " (str (pr-str msg))))
             )))))
 
@@ -97,20 +98,9 @@
                        (fn [ajax-resp] (.log js/console "Ajax login response: %s" ajax-resp)))
       (sente/chsk-reconnect! chsk)))
 
-;; we COULD do this, but we'd much rather let this be a client send, like...
-;; (chsk-send! [:my-app/some-req {:data "data"}])
 (defn post-message! [uid msg]
   (log "posting message: " (str "uid: " uid " msg: " msg))
   (chsk-send! [:irc/message {:uid uid :msg msg}]))
-  
-  ;; (sente/ajax-call "/message"
-  ;;                  {:method :post
-  ;;                   :params {:user-id uid
-  ;;                            :message msg
-  ;;                            ;;:csrf-token (:csrf-token @chsk-state) ;; disable for now
-  ;;                            }}
-  ;;                  (fn [ajax-resp] (.log js/console "Ajax message response: %s" ajax-resp))))
-
 
 ;;;_ * Root -------------------------------------------------------
 
@@ -161,7 +151,6 @@
                
                (om/build main-view app)
                (om/build input-view (:input-box app) {:init-state chans})
-               ;;(om/build input-view (:input app) {:init-state chans})
                (om/build irc-view (:messages app)))
       )))
 
