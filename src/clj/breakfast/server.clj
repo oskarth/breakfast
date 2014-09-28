@@ -26,10 +26,6 @@
             ))
 
 ;;;_* Code =============================================================
-
-;; TODO: can't see oneself? cause it's not a privmsg...
-;; (put! irc-chan (str nick ": " text))
-
 ;;;_ * Channels  -------------------------------------------------------
 (let [{:keys [ch-recv send-fn ajax-post-fn ajax-get-or-ws-handshake-fn
               connected-uids]}
@@ -64,8 +60,9 @@
 (defn handle-incoming
   "Deal with incoming IRC messages from the web client."
   [_ {:keys [text nick] :as m}]
-  (do (put! irc-chan (str nick ": " text))
-      (println (str "[IRC] " nick ": " text " mk? " (keys m)))))
+  (do (put! irc-chan (str nick ": " text "(" (first (:params m)) ")"))
+      (println (str "[IRC] " nick ": " text "(" (first (:params m)) ")"))))
+;;(:text :target :command :params :raw :host :user :nick)
 
 (defn start-irc []
   (let [conn (irc/connect "irc.freenode.net" 6667 "breakfastbot"
@@ -76,17 +73,19 @@
 
 (defn send-message-raw
   "Send a message to a IRC channel. Warning: unthrottled."
-  [conn nick msg]
+  [conn nick msg chan]
   (do
     (irc/message conn "#clojurecup-breakfast" (str nick " says: " msg))
-    (put! irc-chan (str nick ": " msg))))
+    (put! irc-chan (str nick ": " msg " (" chan ")"))))
+
+;; (put! irc-chan (str nick ": " text "(" (first (:params m)) ")"))
 
 (defn send-info-message-raw
   "Code duplication is good, right?"
-  [conn nick msg]
+  [conn nick msg chan]
   (do
     (irc/message conn "#clojurecup-breakfast" (str nick " just " msg))
-    (put! irc-chan (str nick " just " msg))))
+    (put! irc-chan (str nick " just " msg " (" chan ")"))))
 
 
 ;; maybe? cause not PRIVMSG so need to push it.
@@ -109,13 +108,13 @@
               ev (:event v)
               load (second ev)]
           (condp identical? (first ev)
-            :chsk/uidport-open (send-info-message-throttled conn (-> v :ring-req :session :uid) "joined.")
-            :chsk/uidport-close (send-info-message-throttled conn (-> v :ring-req :session :uid) "left.")
+            :chsk/uidport-open (send-info-message-throttled conn (-> v :ring-req :session :uid) "joined" "#clojure-breakfast")
+            :chsk/uidport-close (send-info-message-throttled conn (-> v :ring-req :session :uid) "left" "#clojure-breakfast")
             :chsk/ws-ping nil ;; (prn "ping")
             :irc/message
             (do
               (println (str (:uid load) ": " (:msg load)))
-              (send-message-throttled conn (:uid load) (:msg load)))
+              (send-message-throttled conn (:uid load) (:msg load) "#clojure-breakfast"))
             )))))
 
 ;;;_ * Requests/HTML --------------------------------------------------
