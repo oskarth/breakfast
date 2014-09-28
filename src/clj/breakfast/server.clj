@@ -37,58 +37,49 @@
 
 ;; TODO
 ;; just listen for stuff from client
-;; (go (while true
-;;       (let [v (<! ch-chsk)]
-;;         (do (prn "EVENT: " (str (pr-str v)))
-;;             (prn  "KEYS: " (str (pr-str (keys v))))))))
-
-;; Kind of what we want for IRC broadcast, but a bit more often
-(defn start-broadcaster! []
-  (go-loop [i 0]
-    (<! (async/timeout 5000))
-    (println (format "Broadcasting server>user: %s" @connected-uids))
-    (doseq [uid (:any @connected-uids)]
-      (chsk-send! uid
-                  [:some/broadcast
-                   {:what-is-this (str "A broadcast pushed from server " (rand-int 100))
-                    :how-often "Every 5 seconds"
-                    :to-whom uid
-                    :i i}]))
-    (recur (inc i))))
 
 ;; this is a chan, not a chan.
-(def irc-chan (chan (sliding-buffer 1))) ;; is sliding buffer 1 what I want?
+(def irc-chan (chan (sliding-buffer 1)))
 
 (defn handle-irc-events []
   (go (while true
         (let [msg (<! irc-chan)]
-          (do
-            (println (format "IRC Broadcasting server>user: %s" @connected-uids))
-            (doseq [uid (:any @connected-uids)]
-              (chsk-send! uid
-                          [:irc/message
-                           {:message msg
-                            :how-often "Every 5 seconds"
-                            :to-whom uid}])))))))
+          (do (println (format "IRC Broadcasting: %s" @connected-uids))
+              (doseq [uid (:any @connected-uids)]
+                (chsk-send! uid
+                            [:irc/message
+                             {:message msg
+                              :to-whom uid}])))))))
+
+(declare conn)
 
 ;;;_ * IRC ------------------------------------------------------------
 
 (defn handle-incoming
   "Deal with incoming IRC messages."
   [_ {:keys [text nick] :as m}]
-  ;; put them on a channel
-  (do (put! irc-chan (str "INCOMING: " text " (" nick ")")) ;; this does work
-      (prn (str "INCOMING: " text " (" nick ")"))))
+  (do (put! irc-chan (str nick ": " text))
+      (println (str "[IRC] " nick ": " text " mk? " (keys m))))) ;; prn before
 
 (defn start-irc []
   (let [conn (irc/connect "irc.freenode.net" 6667 "breakfastbot"
                           :callbacks {:privmsg handle-incoming})]
     (irc/join conn "#clojurecup-breakfast")
+    (irc/join conn "#clojure") ;; why not? message is separate fn
     conn))
 
-(defn message [conn s]
+(defn message
+  "Send a message to a IRC channel."
+  [conn s]
   (irc/message conn "#clojurecup-breakfast" (str "foo says: " s)))
-  
+
+(defn handle-client-events []
+  (go (while true
+        (let [v (<! ch-chsk)]
+          (do (println "EVENT: " (str (pr-str v)))
+              (message conn (str "garbg subset: " (:event v)))  ;; something something message
+              )))))
+
 
 ;;;_ * Requests/HTML --------------------------------------------------
 (defn login!
@@ -99,6 +90,16 @@
     (prn "params: " (str params))
     (prn "user-id: " (str user-id))
     {:status 200 :session (assoc session :uid user-id)}))
+
+(defn message!
+  "Get some kind of IRCCIng gonning."
+  [req]
+  (let [{:keys [session params]} req ;; shoud be params but... form-params?
+        {:keys [user-id message]} params] ;; -- not a key?
+    (prn "params: " (str params))
+    (prn "message: " (str message))
+    {:status 200 :session (assoc session :uid user-id)}))
+
 
 (defn body-transforms []
   (if (env :is-dev)
@@ -122,6 +123,7 @@
   (POST "/chsk" req (ring-ajax-post                req))
 
   (POST "/login" req (login! req))
+  (POST "/message" req (message! req))
 
   (GET "/*" req (page)))
 
@@ -134,8 +136,9 @@
 
 ;;;_ * Start ------------------------------------------------------------
 
-;; (def conn (start-irc)) ;; automatically connect to irc
-;; (handle-irc-events)
+(def conn (start-irc)) ;; automatically connect to irc, need that global
+
+(handle-irc-events) ;; listens for irc events
 
 (defn browser-repl []
   (piggieback/cljs-repl :repl-env (weasel/repl-env :ip "0.0.0.0" :port 9001)))
@@ -145,15 +148,6 @@
     (run-server #'app {:port (Integer. (or port (env :port) 10555))
                        :join? false}))
   server)
-
-(defn start! [& [port]]
-  (run port)
-  ;;(start-broadcaster!)
-  )
-
-(defn start-irc! []
-  (start-irc)
-  (handle-irc-events))
 
 (defn -main [& [port]]
   (run port))
