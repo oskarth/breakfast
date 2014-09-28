@@ -55,44 +55,19 @@
 
 ;;;_ * Actions  -------------------------------------------------------
 
-;; ;; from om-data-vis
-;; (defn input-box
-;;   [cursor owner]
-;;   (reify
-;;     om/IRenderState
-;;     (render-state [_ {:keys [event-chan]}]
-;;        (dom/div
-;;         #js {:class "form-inline" :role "form"}
-;;         (dom/div
-;;          #js {:class "form-group"}
-;;          (dom/input
-;;           #js {:type "text"
-;;                :class "form-control"
-;;                :onChange (fn [e] (om/set-state! owner :value (.-value (.-target e))))
-;;                :onKeyPress (fn [e] (when (= (.-keyCode e) 13)
-;;                                        (let [value (om/get-state owner :value)]
-;;                                          (when value
-;;                                            (put! event-chan value)))))}))
-;;         (dom/button
-;;          #js {:type "button" :class "btn btn-primary"
-;;               :onClick
-;;               (fn [e]
-;;                 (let [value (om/get-state owner :value)]
-;;                   (when value
-;;                     (put! event-chan value))))} "Go")))))
-
 (defn input-box-input [owner chan]
   (dom/div nil
            (dom/input
             #js {:type "text"
-
                  ;; key press not working
                  :onKeyPress (fn [e] (when (= (.-keyCode e) 13)
+                                       (log "foobar" (str e))
                                        (let [value (om/get-state owner :value)]
                                          (when value
                                            (put! chan value)))))
                  :onChange (fn [e]
-                   (om/set-state! owner :value (.-value (.-target e))))})))
+                             (om/set-state! owner :value (.-value (.-target e))))
+                 })))
 
 (defn input-box-button [owner chan]
   (dom/button #js {:type "button"
@@ -102,8 +77,6 @@
                        (when value
                          (put! chan {:tag :message :value value}))))}
               "Send"))
-
-;; (let [event-chan (om/get-state owner [:event-chan])]
 
 (defn input-view [cursor owner]
   (reify
@@ -124,15 +97,19 @@
                        (fn [ajax-resp] (.log js/console "Ajax login response: %s" ajax-resp)))
       (sente/chsk-reconnect! chsk)))
 
+;; we COULD do this, but we'd much rather let this be a client send, like...
+;; (chsk-send! [:my-app/some-req {:data "data"}])
 (defn post-message! [uid msg]
   (log "posting message: " (str "uid: " uid " msg: " msg))
-  (sente/ajax-call "/message"
-                   {:method :post
-                    :params {:user-id uid
-                             :message msg
-                             ;;:csrf-token (:csrf-token @chsk-state) ;; disable for now
-                             }}
-                   (fn [ajax-resp] (.log js/console "Ajax message response: %s" ajax-resp))))
+  (chsk-send! [:irc/message {:uid uid :msg msg}]))
+  
+  ;; (sente/ajax-call "/message"
+  ;;                  {:method :post
+  ;;                   :params {:user-id uid
+  ;;                            :message msg
+  ;;                            ;;:csrf-token (:csrf-token @chsk-state) ;; disable for now
+  ;;                            }}
+  ;;                  (fn [ajax-resp] (.log js/console "Ajax message response: %s" ajax-resp))))
 
 
 ;;;_ * Root -------------------------------------------------------
@@ -168,7 +145,8 @@
         (go (while true
               (let [v (<! event-chan)]
                 (log "IRC message: " (str (pr-str v)))
-                (condp keyword-identical? (:tag v) :message (post-message! (:uid @app) (:value v)))))))
+                (condp keyword-identical? (:tag v)
+                  :message (post-message! (:uid @app) (:value v)))))))
 
       ;; uid login stuff
       (if (not (:uid app))

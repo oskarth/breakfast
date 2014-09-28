@@ -17,6 +17,7 @@
             [weasel.repl.websocket :as weasel]
             [irclj.core :as irc]
             [taoensso.sente :as sente]
+            [throttler.core :refer [throttle-chan throttle-fn]]
             [ring.middleware.keyword-params :refer (wrap-keyword-params)]
             [ring.middleware.nested-params :refer (wrap-nested-params)]
             [ring.middleware.session :refer [wrap-session]]
@@ -68,17 +69,63 @@
     (irc/join conn "#clojure") ;; why not? message is separate fn
     conn))
 
-(defn message
-  "Send a message to a IRC channel."
-  [conn s]
-  (irc/message conn "#clojurecup-breakfast" (str "foo says: " s)))
+;; 2 seocnds per line !!! TODO damn.
+;; https://github.com/brunoV/throttler
+;;(def +# (throttle-fn + 100 :second))
 
+(defn send-message
+  "Send a message to a IRC channel."
+  [conn nick msg]
+  (throttle-fn
+   (irc/message conn "#clojurecup-breakfast" (str nick " says: " msg))
+   1 :second))
+;; does this work? try 1 first. then 0.5.
+
+;; based on http://www.reddit.com/r/irc/comments/1rdejj/freenode_flood_limits/
+;; "I can answer this with some confidence unless it has
+;; changed (unlikely). The rule of thumb is 2 seconds per line, and
+;; that includes lines without content, like PINGs. The algorithm
+;; allows for bursts up to 5 at once (in a 10 second span)."
+
+
+;; TODO: nick
+
+;; feck.
+;; 19:10 < breakfastbot> foo says: garbg subset: [:chsk/uidport-open]
+;; 19:10 < breakfastbot> foo says: garbg subset: [:chsk/ws-ping]
+;; 19:10 < breakfastbot> foo says: garbg subset: [:chsk/ws-ping]
+;; 19:10 < breakfastbot> foo says: garbg subset: [:chsk/ws-ping]
+;; 19:10 < breakfastbot> foo says: garbg subset: [:chsk/ws-ping]
+;; 19:10 -!- breakfastbot [~breakfast@5.63.151.188] has quit [Excess Flood]
+
+;; ok I'm tired, so just gonna go with the post thing. Refactor is for another day.
+;; no we should do this, better transport. BE CARUFLE.
+
+;; what hpapened with this -- haha, wtf. why didn't you use this!
+;; CNOTROL THE MESSAGE
+;;(send-message conn (str "garbg subset: " (:event v)))  ;; something something message
+;;              msg (:msg (second ev)) ;; what if fail?
+;;              uid (:uid (second ev))
 (defn handle-client-events []
   (go (while true
-        (let [v (<! ch-chsk)]
-          (do (println "EVENT: " (str (pr-str v)))
-              (message conn (str "garbg subset: " (:event v)))  ;; something something message
-              )))))
+        (let [v (<! ch-chsk)
+              ev (:event v)
+              load (second ev)]
+          (condp identical? (first ev)
+            :chsk/uidport-open (println "uidport open")
+            :chsk/uidport-close (println "uidport close")
+            :chsk/ws-ping (println "ws-ping")
+            :irc/message (do
+                           (println (str "nick " (:uid load) " msg " (:msg load)))
+                           (send-message conn (:uid load) (:msg load)))  ;; buffering? nick msg
+            )))))
+ ;; (str "nick " uid " msg " msg)))
+;; :irc/message {:uid "user_42", :msg "foobar"}]
+
+;; yay! [:my-app/some-req {:data "data"}]
+
+
+
 
 
 ;;;_ * Requests/HTML --------------------------------------------------
@@ -94,11 +141,12 @@
 (defn message!
   "Get some kind of IRCCIng gonning."
   [req]
-  (let [{:keys [session params]} req ;; shoud be params but... form-params?
-        {:keys [user-id message]} params] ;; -- not a key?
+  (let [{:keys [session params]} req
+        {:keys [user-id message]} params]
     (prn "params: " (str params))
     (prn "message: " (str message))
-    {:status 200 :session (assoc session :uid user-id)}))
+    ;; actual message
+    {:status 200 :session (assoc session :uid user-id)})) ;; w or w/o session?
 
 
 (defn body-transforms []
@@ -139,6 +187,7 @@
 (def conn (start-irc)) ;; automatically connect to irc, need that global
 
 (handle-irc-events) ;; listens for irc events
+(handle-client-events)
 
 (defn browser-repl []
   (piggieback/cljs-repl :repl-env (weasel/repl-env :ip "0.0.0.0" :port 9001)))

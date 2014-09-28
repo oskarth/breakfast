@@ -20,6 +20,7 @@
                  [com.cemerick/piggieback "0.1.3"]
                  [weasel "0.4.0-SNAPSHOT"]
                  [irclj "0.5.0-alpha4"]
+                 [throttler "1.0.0"]
                  [com.taoensso/sente "1.1.0"]
                  [com.taoensso/encore "1.9.3"]] ;; for logf?
 
