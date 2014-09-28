@@ -7,13 +7,16 @@
 ;;;_* Declarations =====================================================
 (ns breakfast.core
   (:require-macros
-   [cljs.core.async.macros :as asyncm :refer (go go-loop)])
+   [cljs.core.async.macros :as asyncm :refer (go go-loop)]
+   [cljs.core.match.macros :refer (match)])
   (:require [clojure.string :as str]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [figwheel.client :as figwheel :include-macros true]
             [weasel.repl :as weasel]
             [cljs.core.async :as async :refer (<! >! put! chan)]
+            [cljs.core.match]
+            [cljs.reader :as reader]
             [taoensso.sente  :as sente :refer (cb-success?)]
             [taoensso.encore :as encore :refer (logf)]))
 
@@ -21,6 +24,7 @@
 ;;;_ * Misc  -----------------------------------------------------------
 (logf "ClojureScript appears to have loaded correctly.")
 
+;; bs not working
 (defn log [s x]
   (.log js/console s (str x)))
 
@@ -36,42 +40,19 @@
   )
 
 (defonce app-state (atom {:text "Hello Breakfast!"
+                          :messages []
                           :uid nil}))
 
-;; just put something
-(chsk-send! [:my-app/some-req {:data "data"}])
 
-;; from example app
-;; (do ; Client-side methods  (defmethod event-msg-handler :default ; Fallback
-;;     [{:as ev-msg :keys [event]}]
-;;     (log "Unhandled event: " event)
-;;   (defmethod event-msg-handler :chsk/state
-;;     [{:as ev-msg :keys [?data]}]
-;;     (if (= ?data {:first-open? true})
-;;       (log "Channel socket successfully established!" "")
-;;       (log "Channel socket state change: " ?data)))
-;;   (defmethod event-msg-handler :chsk/recv
-;;     [{:as ev-msg :keys [?data]}]
-;;     (log "Push event from server: " ?data))
-;;   ;; Add your (defmethod handle-event-msg! <event-id> [ev-msg] <body>)s here...
-;; )
+(defn handle-events []
+  (go (while true
+        (let [ev (:event (<! ch-chsk))
+              msg (second (second ev))]
+          (condp keyword-identical? (first ev)
+            :chsk/state (prn "sup, checking state")
+            :chsk/recv (prn "msg: " (str (pr-str msg)))
+            ))))))
 
-;; also, sup with no csfr token available error
-
-;; do this but for just a go loop or smt
-;;   (defmethod event-msg-handler :chsk/recv
-;;     [{:as ev-msg :keys [?data]}]
-;;     (log "Push event from server: " ?data))
-
-
-;;what
-
-;; (defn test-fast-server>user-pushes []
-;;   (doseq [uid (:any @connected-uids)]
-;;     (doseq [i (range 100)]
-;;       (chsk-send! uid [:fast-push/is-fast (str "hello " i "!!")]))))
-
-;; (test-fast-server>user-pushes)
 
 ;;;_ * Actions  -------------------------------------------------------
 (defn login! [uid]
@@ -89,10 +70,7 @@
     (reify
       om/IWillMount
       (will-mount [this]
-        (go (while true
-              (let [v (<! ch-chsk)] ;; right channel?
-                (prn "MSG: " (str (pr-str v)))))) ;; super messy broadcast recv ATM
-        ;;(def ch-chsk    ch-recv) ; ChannelSocket's receive channel
+        (handle-events)
         
         (if (not (:uid app))
           (let [uid (str "user_" (rand-int 100))]

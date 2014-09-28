@@ -41,25 +41,19 @@
         (do (prn "EVENT: " (str (pr-str v)))
             (prn  "KEYS: " (str (pr-str (keys v))))))))
 
-;; JUST PLAYING, FROM EXAMPLE PROJ
-;;;; Example: broadcast server>user
-;; As an example of push notifications, we'll setup a server loop to broadcast
-;; an event to _all_ possible user-ids every 10 seconds:
+;; Kind of what we want for IRC broadcast, but a bit more often
 (defn start-broadcaster! []
   (go-loop [i 0]
-    (<! (async/timeout 10000))
+    (<! (async/timeout 5000))
     (println (format "Broadcasting server>user: %s" @connected-uids))
     (doseq [uid (:any @connected-uids)]
       (chsk-send! uid
                   [:some/broadcast
-                   {:what-is-this "A broadcast pushed from server"
-                    :how-often "Every 10 seconds"
+                   {:what-is-this (str "A broadcast pushed from server " (rand-int 100))
+                    :how-often "Every 5 seconds"
                     :to-whom uid
                     :i i}]))
     (recur (inc i))))
-
-;; something like
-;; (chsk-send! "destination-user-id" [:some/alert-id <edn-payload>]).
 
 ;;;_ * IRC ------------------------------------------------------------
 (defn handle-incoming
@@ -123,8 +117,6 @@
 
 ;; (def conn (start-irc)) ;; automatically connect to irc
 
-(start-broadcaster!)
-
 (defn browser-repl []
   (piggieback/cljs-repl :repl-env (weasel/repl-env :ip "0.0.0.0" :port 9001)))
 
@@ -133,6 +125,10 @@
     (run-server #'app {:port (Integer. (or port (env :port) 10555))
                        :join? false}))
   server)
+
+(defn start! [& [port]]
+  (run port)
+  (start-broadcaster!))  
 
 (defn -main [& [port]]
   (run port))
