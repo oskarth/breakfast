@@ -167,7 +167,7 @@
 
 (defn run [& [port]]
   (defonce ^:private server
-    (run-server #'app {:port (Integer. 10555) ;;(Integer. (or port (env :port) 10555))
+    (run-server #'app {:port (Integer. 80) ;;(Integer. (or port (env :port) 10555))
                        :join? false}))
   server)
 
